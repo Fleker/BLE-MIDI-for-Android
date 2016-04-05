@@ -9,6 +9,7 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.support.annotation.NonNull;
+import android.util.Log;
 
 /**
  * Utilities for Bluetooth LE
@@ -75,8 +76,9 @@ public class BleUtils {
      * @return true if bluetooth enabled
      */
     public static boolean isBluetoothEnabled(@NonNull final Context context) {
+        String TAG = "Bletils";
         final BluetoothManager bluetoothManager = (BluetoothManager) context.getSystemService(Context.BLUETOOTH_SERVICE);
-
+        Log.d(TAG, "BM = "+bluetoothManager.toString());
         if (bluetoothManager == null) {
             return false;
         }
@@ -87,10 +89,13 @@ public class BleUtils {
         } else {
             bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         }
+        Log.d(TAG, "Got BTAdtapter "+bluetoothAdapter);
 
         if (bluetoothAdapter == null) {
             return false;
         }
+
+        Log.d(TAG, "Boom is enabled??");
 
         return bluetoothAdapter.isEnabled();
     }

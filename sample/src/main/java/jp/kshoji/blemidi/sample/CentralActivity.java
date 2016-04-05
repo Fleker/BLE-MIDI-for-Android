@@ -1,17 +1,22 @@
 package jp.kshoji.blemidi.sample;
 
+import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.PorterDuff;
 import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioTrack;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.support.annotation.NonNull;
+import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.MotionEvent;
@@ -37,6 +42,7 @@ import jp.kshoji.blemidi.listener.OnMidiDeviceAttachedListener;
 import jp.kshoji.blemidi.listener.OnMidiDeviceDetachedListener;
 import jp.kshoji.blemidi.listener.OnMidiInputEventListener;
 import jp.kshoji.blemidi.listener.OnMidiScanStatusListener;
+import jp.kshoji.blemidi.sample.util.MidiEventHandler;
 import jp.kshoji.blemidi.sample.util.SoundMaker;
 import jp.kshoji.blemidi.sample.util.Tone;
 import jp.kshoji.blemidi.util.BleUtils;
@@ -46,7 +52,8 @@ import jp.kshoji.blemidi.util.BleUtils;
  *
  * @author K.Shoji
  */
-public class CentralActivity extends Activity {
+public class CentralActivity extends AppCompatActivity {
+    private static final String TAG = "CentralActivity";
     BleMidiCentralProvider bleMidiCentralProvider;
 
     MenuItem toggleScanMenu;
@@ -77,12 +84,15 @@ public class CentralActivity extends Activity {
                     bleMidiCentralProvider.startScanDevice(0);
                 }
                 return true;
+            case R.id.action_panic:
+                tones.clear();
+                return true;
         }
         return super.onOptionsItemSelected(item);
     }
 
     // User interface
-    final Handler midiInputEventHandler = new Handler(new Handler.Callback() {
+    final MidiEventHandler midiInputEventHandler = new MidiEventHandler("Input", new Handler.Callback() {
         @Override
         public boolean handleMessage(Message msg) {
             if (midiInputEventAdapter != null) {
@@ -93,7 +103,7 @@ public class CentralActivity extends Activity {
         }
     });
 
-    final Handler midiOutputEventHandler = new Handler(new Handler.Callback() {
+    final MidiEventHandler midiOutputEventHandler = new MidiEventHandler("Output", new Handler.Callback() {
         @Override
         public boolean handleMessage(Message msg) {
             if (midiOutputEventAdapter != null) {
@@ -386,6 +396,16 @@ public class CentralActivity extends Activity {
     public void onCreate(final Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        Log.d(TAG, "Welcome");
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[] {Manifest.permission.ACCESS_FINE_LOCATION}, 1);
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && checkSelfPermission(Manifest.permission.BLUETOOTH) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[] {Manifest.permission.BLUETOOTH}, 1);
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && checkSelfPermission(Manifest.permission.BLUETOOTH_ADMIN) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[] {Manifest.permission.BLUETOOTH_ADMIN}, 1);
+        }
 
         ListView midiInputEventListView = (ListView) findViewById(R.id.midiInputEventListView);
         midiInputEventAdapter = new ArrayAdapter<>(this, R.layout.midi_event, R.id.midiEventDescriptionTextView);
@@ -401,17 +421,26 @@ public class CentralActivity extends Activity {
         deviceSpinner = (Spinner) findViewById(R.id.deviceNameSpinner);
         connectedOutputDevicesAdapter = new ArrayAdapter<>(getApplicationContext(), R.layout.simple_spinner_dropdown_item, android.R.id.text1, new ArrayList<MidiOutputDevice>());
         deviceSpinner.setAdapter(connectedOutputDevicesAdapter);
-
+        Log.d(TAG, "Set adapters");
+        final boolean[] buttonDown = {false};
         View.OnTouchListener onToneButtonTouchListener = new View.OnTouchListener() {
 
             @Override
             public boolean onTouch(View v, MotionEvent event) {
+                int note = 60 + Integer.parseInt((String) v.getTag());
+                if(event.getAction() == MotionEvent.ACTION_DOWN && !buttonDown[0]) {
+                    tones.add(new Tone(note, 127.0, currentProgram));
+                    buttonDown[0] = true;
+                } else if(event.getAction() == MotionEvent.ACTION_UP && buttonDown[0]) {
+                    tones.clear();
+                    buttonDown[0] = false;
+                }
+
                 MidiOutputDevice midiOutputDevice = getBleMidiOutputDeviceFromSpinner();
                 if (midiOutputDevice == null) {
                     return false;
                 }
 
-                int note = 60 + Integer.parseInt((String) v.getTag());
                 switch (event.getAction()) {
                     case MotionEvent.ACTION_DOWN:
                         midiOutputDevice.sendMidiNoteOn(0, note, 127);
@@ -428,6 +457,7 @@ public class CentralActivity extends Activity {
                 return false;
             }
         };
+        Log.d(TAG, "Set ontouchlistenrs");
         findViewById(R.id.buttonC).setOnTouchListener(onToneButtonTouchListener);
         findViewById(R.id.buttonCis).setOnTouchListener(onToneButtonTouchListener);
         findViewById(R.id.buttonD).setOnTouchListener(onToneButtonTouchListener);
@@ -442,7 +472,7 @@ public class CentralActivity extends Activity {
         findViewById(R.id.buttonB).setOnTouchListener(onToneButtonTouchListener);
         findViewById(R.id.buttonC2).setOnTouchListener(onToneButtonTouchListener);
 
-        int whiteKeyColor = 0xFFFFFFFF;
+        int whiteKeyColor = 0xFFDDDDDD;
         int blackKeyColor = 0xFF808080;
         findViewById(R.id.buttonC).getBackground().setColorFilter(whiteKeyColor, PorterDuff.Mode.MULTIPLY);
         findViewById(R.id.buttonCis).getBackground().setColorFilter(blackKeyColor, PorterDuff.Mode.MULTIPLY);
@@ -457,6 +487,7 @@ public class CentralActivity extends Activity {
         findViewById(R.id.buttonAis).getBackground().setColorFilter(blackKeyColor, PorterDuff.Mode.MULTIPLY);
         findViewById(R.id.buttonB).getBackground().setColorFilter(whiteKeyColor, PorterDuff.Mode.MULTIPLY);
         findViewById(R.id.buttonC2).getBackground().setColorFilter(whiteKeyColor, PorterDuff.Mode.MULTIPLY);
+        Log.d(TAG, "Finished that");
 
         soundMaker = SoundMaker.getInstance();
         final int bufferSize = AudioTrack.getMinBufferSize(soundMaker.getSamplingRate(), AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT);
@@ -485,6 +516,7 @@ public class CentralActivity extends Activity {
             }
         };
         timer.scheduleAtFixedRate(timerTask, 10, timerRate);
+        Log.d(TAG, "Set audioplayer");
 
         Button disconnectButton = (Button) findViewById(R.id.disconnectButton);
         disconnectButton.setOnClickListener(new View.OnClickListener() {
@@ -496,13 +528,18 @@ public class CentralActivity extends Activity {
                 }
             }
         });
+        Log.d(TAG, "Added disconnet button");
 
         if (!BleUtils.isBluetoothEnabled(this)) {
-            BleUtils.enableBluetooth(this);
+            Log.d(TAG, "not enabled bt");
+            BleUtils.enableBluetooth(CentralActivity.this);
+            Log.d(TAG, "BT enabled");
             return;
         }
+        Log.d(TAG, "Checked BLE enabled");
 
         if (!BleUtils.isBleSupported(this)) {
+            Log.d(TAG, "!");
             // display alert and exit
             AlertDialog alertDialog = new AlertDialog.Builder(this).create();
             alertDialog.setTitle("Not supported");
@@ -520,9 +557,12 @@ public class CentralActivity extends Activity {
                 }
             });
             alertDialog.show();
+            Log.d(TAG, "BLE not supported");
         } else {
+            Log.d(TAG, "Set central provider");
             setupCentralProvider();
         }
+        Log.d(TAG, "onCrate Over");
     }
 
     /**
@@ -545,6 +585,7 @@ public class CentralActivity extends Activity {
                 midiOutputConnectionChangedHandler.sendMessage(message);
             }
         });
+        Log.d(TAG, "onMidiAttached");
 
         bleMidiCentralProvider.setOnMidiDeviceDetachedListener(new OnMidiDeviceDetachedListener() {
             @Override
@@ -560,6 +601,7 @@ public class CentralActivity extends Activity {
                 midiOutputConnectionChangedHandler.sendMessage(message);
             }
         });
+        Log.d(TAG, "onMidiDetached");
 
         bleMidiCentralProvider.setOnMidiScanStatusListener(new OnMidiScanStatusListener() {
             @Override
@@ -574,15 +616,17 @@ public class CentralActivity extends Activity {
                 }
             }
         });
+        Log.d(TAG, "Begin to scan");
 
         // scan devices for 30 seconds
         bleMidiCentralProvider.startScanDevice(30000);
+        Log.d(TAG, "Start scan");
     }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-
+        Log.d(TAG, "oAR "+requestCode+" "+resultCode);
         if (requestCode == BleUtils.REQUEST_CODE_BLUETOOTH_ENABLE) {
             if (!BleUtils.isBluetoothEnabled(this)) {
                 // User selected NOT to use Bluetooth.

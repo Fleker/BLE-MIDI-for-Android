@@ -134,28 +134,37 @@ public final class BleMidiCentralProvider {
      */
     @SuppressLint({ "Deprecation", "NewApi" })
     public void startScanDevice(int timeoutInMilliSeconds) {
+        final String TAG = "BMCP";
+        Log.d(TAG, "Looking to scan");
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             BluetoothLeScanner bluetoothLeScanner = bluetoothAdapter.getBluetoothLeScanner();
+            Log.d(TAG, "Get lescanner");
             List<ScanFilter> scanFilters = BleMidiDeviceUtils.getBleMidiScanFilters(context);
             ScanSettings scanSettings = new ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).build();
+            Log.d(TAG, "Set scan properties");
             bluetoothLeScanner.startScan(scanFilters, scanSettings, scanCallback);
+            Log.d(TAG, "Start scan");
         } else {
             bluetoothAdapter.startLeScan(leScanCallback);
         }
+        Log.d(TAG, "Scan started");
 
         isScanning = true;
         if (onMidiScanStatusListener != null) {
             onMidiScanStatusListener.onMidiScanStatusChanged(isScanning);
         }
+        Log.d(TAG, "isScanning");
 
         if (stopScanRunnable != null) {
             handler.removeCallbacks(stopScanRunnable);
         }
+        Log.d(TAG, "Remove calllbacks");
 
         if (timeoutInMilliSeconds > 0) {
             stopScanRunnable = new Runnable() {
                 @Override
                 public void run() {
+                    Log.d(TAG, "Stop running");
                     stopScanDevice();
 
                     isScanning = false;
@@ -164,8 +173,10 @@ public final class BleMidiCentralProvider {
                     }
                 }
             };
+            Log.d(TAG, "Post delayed");
             handler.postDelayed(stopScanRunnable, timeoutInMilliSeconds);
         }
+        Log.d(TAG, "timeout "+timeoutInMilliSeconds);
     }
 
     /**

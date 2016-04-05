@@ -53,6 +53,7 @@ public final class BleMidiCallback extends BluetoothGattCallback {
     private OnMidiDeviceAttachedListener midiDeviceAttachedListener;
     private OnMidiDeviceDetachedListener midiDeviceDetachedListener;
 
+    private static final String TAG = "BleMidi";
     private boolean needsBonding = false;
 
     /**
@@ -60,9 +61,28 @@ public final class BleMidiCallback extends BluetoothGattCallback {
      *
      * @param context the context
      */
+    public static final String MIDI_SERVICE = "03B80E5A-EDE8-4B33-A751-6CE34EC4C700";
+    public static final String MIDI_IO_CHARACTERISTIC = "7772E5DB-3868-4112-A1A9-F2669D106BF3";
     public BleMidiCallback(@NonNull final Context context) {
         super();
         this.context = context;
+    }
+
+    public void relog() {
+        Log.d(TAG, "BleMidiCallback");
+        try {
+            Log.d(TAG, deviceAddressGattMap.toString());
+            for(String key: deviceAddressGattMap.keySet()) {
+                Log.d(TAG, "  "+deviceAddressGattMap.get(key).getDevice().getName());
+                Log.d(TAG, "  "+deviceAddressGattMap.get(key).toString());
+                Log.d(TAG, "  "+deviceAddressGattMap.get(key).getServices().toString());
+                Log.d(TAG, "  "+deviceAddressGattMap.get(key).readCharacteristic(
+                        new BluetoothGattCharacteristic(UUID.fromString(MIDI_SERVICE), BluetoothGattCharacteristic.PROPERTY_READ, BluetoothGattCharacteristic.PERMISSION_READ)
+                ));
+            }
+        } catch(Exception e) {
+            Log.e(TAG, ""+e.getMessage());
+        }
     }
 
     /**
@@ -214,6 +234,7 @@ public final class BleMidiCallback extends BluetoothGattCallback {
                 gatt.requestConnectionPriority(BluetoothGatt.CONNECTION_PRIORITY_HIGH);
             }
         }
+        relog();
     }
 
     @Override
